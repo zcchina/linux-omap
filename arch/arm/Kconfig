@@ -1281,6 +1281,8 @@ source "drivers/cbus/Kconfig"
 source "drivers/dsp/dspgateway/Kconfig"
 endif
 
+source "drivers/dsp/bridge/Kconfig"
+
 endmenu
 
 source "fs/Kconfig"
