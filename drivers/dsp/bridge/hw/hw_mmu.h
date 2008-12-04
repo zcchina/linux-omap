@@ -31,12 +31,39 @@
 #define __HW_MMU_H
 
 #include <linux/types.h>
+#include <asm/io.h>
 
 /* Bitmasks for interrupt sources */
 #define HW_MMU_TRANSLATION_FAULT   0x2
 #define HW_MMU_ALL_INTERRUPTS      0x1F
 
 #define HW_MMU_COARSE_PAGE_SIZE 0x400
+
+/* MMU Register offsets */
+#define MMU_REVISION 0x00
+#define MMU_SYSCONFIG 0x10
+#define MMU_SYSSTATUS 0x14
+#define MMU_IRQSTATUS 0x18
+#define MMU_IRQENABLE 0x1c
+#define MMU_WALKING_ST 0x40
+#define MMU_CNTL 0x44
+#define MMU_FAULT_AD 0x48
+#define MMU_TTB 0x4c
+#define MMU_LOCK 0x50
+#define MMU_LD_TLB 0x54
+#define MMU_CAM 0x58
+#define MMU_RAM 0x5c
+#define MMU_GFLUSH 0x60
+#define MMU_FLUSH_ENTRY 0x64
+#define MMU_READ_CAM 0x68
+#define MMU_READ_RAM 0x6c
+#define MMU_EMU_FAULT_AD 0x70
+
+#define MMU_LOCK_VICT_SHIFT 4
+#define MMU_LOCK_VICT_MASK (0x3f << MMU_LOCK_VICT_SHIFT)
+
+#define MMU_LOCK_BASE_SHIFT 10
+#define MMU_LOCK_BASE_MASK (0x3f << MMU_LOCK_BASE_SHIFT)
 
 /* HW_MMUMixedSize_t:  Enumerated Type used to specify whether to follow
 			CPU/TLB Element size */
@@ -53,28 +80,46 @@ struct HW_MMUMapAttrs_t {
 	enum HW_MMUMixedSize_t  mixedSize;
 } ;
 
-extern HW_STATUS HW_MMU_Enable(const u32 baseAddress);
+static inline void HW_MMU_Enable(const u32 baseAddress)
+{
+    __raw_writel(__raw_readl(baseAddress + MMU_CNTL) | 2, baseAddress + MMU_CNTL);
+}
 
-extern HW_STATUS HW_MMU_Disable(const u32 baseAddress);
+static inline void HW_MMU_Disable(const u32 baseAddress)
+{
+    __raw_writel(__raw_readl(baseAddress + MMU_CNTL) & ~2, baseAddress + MMU_CNTL);
+}
 
-extern HW_STATUS HW_MMU_NumLockedSet(const u32 baseAddress,
-					u32 numLockedEntries);
+static inline void HW_MMU_NumLockedSet(const u32 baseAddress, u32 numLockedEntries)
+{
+    __raw_writel(__raw_readl(baseAddress + MMU_LOCK) | (MMU_LOCK_BASE_MASK & (numLockedEntries << MMU_LOCK_BASE_SHIFT)), baseAddress + MMU_LOCK);
+}
 
-extern HW_STATUS HW_MMU_VictimNumSet(const u32 baseAddress,
-					u32 victimEntryNum);
+static inline void HW_MMU_VictimNumSet(const u32 baseAddress, u32 victimEntryNum)
+{
+    __raw_writel(__raw_readl(baseAddress + MMU_LOCK) | (MMU_LOCK_VICT_MASK & (victimEntryNum << MMU_LOCK_VICT_SHIFT)), baseAddress + MMU_LOCK);
+}
 
 /* For MMU faults */
-extern HW_STATUS HW_MMU_EventAck(const u32 baseAddress,
-				    u32 irqMask);
+static inline void HW_MMU_EventAck(const u32 baseAddress, u32 irqMask)
+{
+    __raw_writel(irqMask, baseAddress + MMU_IRQSTATUS);
+}
 
-extern HW_STATUS HW_MMU_EventDisable(const u32 baseAddress,
-					u32 irqMask);
+static inline void HW_MMU_EventDisable(const u32 baseAddress, u32 irqMask)
+{
+    __raw_writel(__raw_readl(baseAddress + MMU_IRQENABLE) & ~irqMask, baseAddress + MMU_IRQENABLE);
+}
 
-extern HW_STATUS HW_MMU_EventEnable(const u32 baseAddress,
-				       u32 irqMask);
+static inline void HW_MMU_EventEnable(const u32 baseAddress, u32 irqMask)
+{
+    __raw_writel(__raw_readl(baseAddress + MMU_IRQENABLE) | irqMask, baseAddress + MMU_IRQENABLE);
+}
 
-extern HW_STATUS HW_MMU_EventStatus(const u32 baseAddress,
-				       u32 *irqMask);
+static inline void HW_MMU_EventStatus(const u32 baseAddress, u32 *irqMask)
+{
+    *irqMask = __raw_readl(baseAddress + MMU_IRQSTATUS);
+}
 
 extern HW_STATUS HW_MMU_FaultAddrRead(const u32 baseAddress,
 					 u32 *addr);
@@ -83,15 +128,24 @@ extern HW_STATUS HW_MMU_FaultAddrRead(const u32 baseAddress,
 extern HW_STATUS HW_MMU_TTBSet(const u32 baseAddress,
 				  u32 TTBPhysAddr);
 
-extern HW_STATUS HW_MMU_TWLEnable(const u32 baseAddress);
+static inline void HW_MMU_TWLEnable(const u32 baseAddress)
+{
+    __raw_writel(__raw_readl(baseAddress + MMU_CNTL) | 4, baseAddress + MMU_CNTL);
+}
 
-extern HW_STATUS HW_MMU_TWLDisable(const u32 baseAddress);
+static inline void HW_MMU_TWLDisable(const u32 baseAddress)
+{
+    __raw_writel(__raw_readl(baseAddress + MMU_CNTL) & ~4, baseAddress + MMU_CNTL);
+}
 
 extern HW_STATUS HW_MMU_TLBFlush(const u32 baseAddress,
 				    u32 virtualAddr,
 				    u32 pageSize);
 
-extern HW_STATUS HW_MMU_TLBFlushAll(const u32 baseAddress);
+static inline void HW_MMU_TLBFlushAll(const u32 baseAddress)
+{
+    __raw_writel(__raw_readl(baseAddress + MMU_GFLUSH) | 1, baseAddress + MMU_GFLUSH);
+}
 
 extern HW_STATUS HW_MMU_TLBAdd(const u32     baseAddress,
 				  u32	   physicalAddr,

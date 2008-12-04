@@ -30,7 +30,6 @@
  */
 
 #include <GlobalTypes.h>
-#include "MMURegAcM.h"
 #include <hw_defs.h>
 #include <hw_mmu.h>
 #include <linux/types.h>
@@ -45,8 +44,6 @@
 #define MMU_PAGE_TABLE_MASK      0xFFFFFC00
 #define MMU_LARGE_PAGE_MASK      0xFFFF0000
 #define MMU_SMALL_PAGE_MASK      0xFFFFF000
-
-#define MMU_LOAD_TLB	0x00000001
 
 /* HW_MMUPageSize_t:  Enumerated Type used to specify the MMU Page Size(SLSS) */
 enum HW_MMUPageSize_t {
@@ -174,98 +171,6 @@ static HW_STATUS MMU_SetRAMEntry(const u32	baseAddress,
 
 /* HW FUNCTIONS */
 
-HW_STATUS HW_MMU_Enable(const u32 baseAddress)
-{
-    HW_STATUS status = RET_OK;
-
-    MMUMMU_CNTLMMUEnableWrite32(baseAddress, HW_SET);
-
-    return status;
-}
-
-HW_STATUS HW_MMU_Disable(const u32 baseAddress)
-{
-    HW_STATUS status = RET_OK;
-
-    MMUMMU_CNTLMMUEnableWrite32(baseAddress, HW_CLEAR);
-
-    return status;
-}
-
-HW_STATUS HW_MMU_NumLockedSet(const u32 baseAddress,
-				u32 numLockedEntries)
-{
-    HW_STATUS status = RET_OK;
-
-    MMUMMU_LOCKBaseValueWrite32(baseAddress, numLockedEntries);
-
-    return status;
-}
-
-HW_STATUS HW_MMU_VictimNumSet(const u32 baseAddress,
-				u32 victimEntryNum)
-{
-    HW_STATUS status = RET_OK;
-
-    MMUMMU_LOCKCurrentVictimWrite32(baseAddress, victimEntryNum);
-
-    return status;
-}
-
-HW_STATUS HW_MMU_TLBFlushAll(const u32 baseAddress)
-{
-    HW_STATUS status = RET_OK;
-
-    MMUMMU_GFLUSHGlobalFlushWrite32(baseAddress, HW_SET);
-
-    return status;
-}
-
-HW_STATUS HW_MMU_EventAck(const u32 baseAddress, u32 irqMask)
-{
-    HW_STATUS status = RET_OK;
-
-    MMUMMU_IRQSTATUSWriteRegister32(baseAddress, irqMask);
-
-    return status;
-}
-
-HW_STATUS HW_MMU_EventDisable(const u32 baseAddress,
-				u32 irqMask)
-{
-    HW_STATUS status = RET_OK;
-    u32 irqReg;
-
-    irqReg = MMUMMU_IRQENABLEReadRegister32(baseAddress);
-
-    MMUMMU_IRQENABLEWriteRegister32(baseAddress, irqReg & ~irqMask);
-
-    return status;
-}
-
-HW_STATUS HW_MMU_EventEnable(const u32 baseAddress, u32 irqMask)
-{
-    HW_STATUS status = RET_OK;
-    u32 irqReg;
-
-    irqReg = MMUMMU_IRQENABLEReadRegister32(baseAddress);
-
-    MMUMMU_IRQENABLEWriteRegister32(baseAddress, irqReg | irqMask);
-
-    return status;
-}
-
-
-HW_STATUS HW_MMU_EventStatus(const u32 baseAddress, u32 *irqMask)
-{
-    HW_STATUS status = RET_OK;
-
-    *irqMask = MMUMMU_IRQSTATUSReadRegister32(baseAddress);
-
-    return status;
-}
-
-
 HW_STATUS HW_MMU_FaultAddrRead(const u32 baseAddress, u32 *addr)
 {
     HW_STATUS status = RET_OK;
@@ -275,7 +180,7 @@ HW_STATUS HW_MMU_FaultAddrRead(const u32 baseAddress, u32 *addr)
 		      RES_MMU_BASE + RES_INVALID_INPUT_PARAM);
 
     /* read values from register */
-    *addr = MMUMMU_FAULT_ADReadRegister32(baseAddress);
+    *addr = __raw_readl(baseAddress + MMU_FAULT_AD);
 
     return status;
 }
@@ -283,35 +188,15 @@ HW_STATUS HW_MMU_FaultAddrRead(const u32 baseAddress, u32 *addr)
 HW_STATUS HW_MMU_TTBSet(const u32 baseAddress, u32 TTBPhysAddr)
 {
     HW_STATUS status = RET_OK;
-    u32 loadTTB;
 
    /*Check the input Parameters*/
    CHECK_INPUT_PARAM(baseAddress, 0, RET_BAD_NULL_PARAM,
 		     RES_MMU_BASE + RES_INVALID_INPUT_PARAM);
 
-   loadTTB = TTBPhysAddr & ~0x7FUL;
    /* write values to register */
-   MMUMMU_TTBWriteRegister32(baseAddress, loadTTB);
+   __raw_writel (TTBPhysAddr & ~0x7FUL, baseAddress + MMU_TTB);
 
    return status;
-}
-
-HW_STATUS HW_MMU_TWLEnable(const u32 baseAddress)
-{
-    HW_STATUS status = RET_OK;
-
-    MMUMMU_CNTLTWLEnableWrite32(baseAddress, HW_SET);
-
-    return status;
-}
-
-HW_STATUS HW_MMU_TWLDisable(const u32 baseAddress)
-{
-    HW_STATUS status = RET_OK;
-
-    MMUMMU_CNTLTWLEnableWrite32(baseAddress, HW_CLEAR);
-
-    return status;
 }
 
 HW_STATUS HW_MMU_TLBFlush(const u32 baseAddress, u32 virtualAddr,
@@ -396,7 +281,7 @@ HW_STATUS HW_MMU_TLBAdd(const u32	baseAddress,
 	return RET_FAIL;
     }
 
-    lockReg = MMUMMU_LOCKReadRegister32(baseAddress);
+    lockReg = __raw_readl(baseAddress + MMU_LOCK);
 
     /* Generate the 20-bit tag from virtual address */
     virtualAddrTag = ((virtualAddr & MMU_ADDR_MASK) >> 12);
@@ -412,14 +297,13 @@ HW_STATUS HW_MMU_TLBAdd(const u32	baseAddress,
 
     /* Update the MMU Lock Register */
     /* currentVictim between lockedBaseValue and (MMU_Entries_Number - 1)*/
-    MMUMMU_LOCKCurrentVictimWrite32(baseAddress, entryNum);
+    HW_MMU_VictimNumSet(baseAddress, entryNum);
 
     /* Enable loading of an entry in TLB by writing 1
 	   into LD_TLB_REG register */
-    MMUMMU_LD_TLBWriteRegister32(baseAddress, MMU_LOAD_TLB);
+    __raw_writel(1, baseAddress + MMU_LD_TLB);
 
-
-    MMUMMU_LOCKWriteRegister32(baseAddress, lockReg);
+    __raw_writel(lockReg, baseAddress + MMU_LOCK);
 
     return status;
 }
@@ -548,7 +432,7 @@ static HW_STATUS MMU_FlushEntry(const u32 baseAddress)
 		     RES_MMU_BASE + RES_INVALID_INPUT_PARAM);
 
    /* write values to register */
-   MMUMMU_FLUSH_ENTRYWriteRegister32(baseAddress, flushEntryData);
+   __raw_writel(flushEntryData, baseAddress + MMU_FLUSH_ENTRY);
 
    return status;
 }
@@ -572,7 +456,7 @@ static HW_STATUS MMU_SetCAMEntry(const u32    baseAddress,
 	       (preservedBit << 3) ;
 
    /* write values to register */
-   MMUMMU_CAMWriteRegister32(baseAddress, mmuCamReg);
+   __raw_writel(mmuCamReg, baseAddress + MMU_CAM);
 
    return status;
 }
@@ -600,7 +484,7 @@ static HW_STATUS MMU_SetRAMEntry(const u32       baseAddress,
 	       (mixedSize << 6));
 
    /* write values to register */
-   MMUMMU_RAMWriteRegister32(baseAddress, mmuRamReg);
+   __raw_writel(mmuRamReg, baseAddress + MMU_RAM);
 
    return status;
 
