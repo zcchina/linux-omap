@@ -69,9 +69,8 @@
 
 extern struct platform_device omap_dspbridge_dev;
 #endif
-extern s32 dsp_test_sleepstate;
 extern struct MAILBOX_CONTEXT mboxsetting;
-
+extern unsigned short enable_off_mode;
 /*
  *  ======== handle_constraints_set ========
  *  	Sets new DSP constraint
@@ -209,7 +208,7 @@ DSP_STATUS SleepDSP(struct WMD_DEV_CONTEXT *pDevContext, IN u32 dwCmd,
 	switch (pDevContext->dwBrdState) {
 	case BRD_RUNNING:
 		status = HW_MBOX_saveSettings(resources.dwMboxBase);
-		if (dsp_test_sleepstate == HW_PWR_STATE_OFF) {
+		if (enable_off_mode) {
 			IO_InterruptDSP2(pDevContext,
 					 MBX_PM_DSPHIBERNATE);
 			DBG_Trace(DBG_LEVEL7,
@@ -224,7 +223,7 @@ DSP_STATUS SleepDSP(struct WMD_DEV_CONTEXT *pDevContext, IN u32 dwCmd,
 		break;
 	case BRD_RETENTION:
 		status = HW_MBOX_saveSettings(resources.dwMboxBase);
-		if (dsp_test_sleepstate == HW_PWR_STATE_OFF) {
+		if (enable_off_mode) {
 			IO_InterruptDSP2(pDevContext,
 					 MBX_PM_DSPHIBERNATE);
 			targetPwrState = HW_PWR_STATE_OFF;
@@ -265,7 +264,7 @@ DSP_STATUS SleepDSP(struct WMD_DEV_CONTEXT *pDevContext, IN u32 dwCmd,
 		DBG_Trace(DBG_LEVEL7, "SleepDSP: DSP STANDBY Pwr state %x \n",
 			 pwrState);
 		/* Update the Bridger Driver state */
-		if (dsp_test_sleepstate == HW_PWR_STATE_OFF)
+		if (enable_off_mode)
 			pDevContext->dwBrdState = BRD_HIBERNATION;
 		else
 			pDevContext->dwBrdState = BRD_RETENTION;

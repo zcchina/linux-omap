@@ -110,8 +110,6 @@
 #define DRIVER_MINOR 0		/* Linux assigns our Major device number */
 s32 dsp_debug;
 
-/* This is a test variable used by Bridge to test different sleep states */
-s32 dsp_test_sleepstate;
 struct bridge_dev {
 	struct cdev cdev;
 };
@@ -168,9 +166,6 @@ MODULE_PARM_DESC(driver_major, "Major device number, default = 0 (auto)");
 
 module_param(driver_minor, int, 0);	/* Driver's major number */
 MODULE_PARM_DESC(driver_minor, "Minor device number, default = 0 (auto)");
-
-module_param(dsp_test_sleepstate, int, 0);
-MODULE_PARM_DESC(dsp_test_sleepstate, "DSP Sleep state = 0");
 
 module_param(base_img, charp, 0);
 MODULE_PARM_DESC(base_img, "DSP base image, default = NULL");
