@@ -100,8 +100,6 @@
 #include <dspbridge/dbreg.h>
 #endif
 
-#include <mach/omap-pm.h>
-
 #define BRIDGE_NAME "C6410"
 /*  ----------------------------------- Globals */
 #define DRIVER_NAME  "DspBridge"
