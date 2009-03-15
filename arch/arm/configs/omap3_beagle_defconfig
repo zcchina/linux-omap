@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.28-omap1
-# Sun Mar 15 23:46:34 2009
+# Mon Mar 16 00:03:29 2009
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -826,7 +826,7 @@ CONFIG_FB_CFB_IMAGEBLIT=y
 CONFIG_FB_OMAP=y
 # CONFIG_FB_OMAP_LCDC_EXTERNAL is not set
 # CONFIG_FB_OMAP_BOOTLOADER_INIT is not set
-CONFIG_FB_OMAP_CONSISTENT_DMA_SIZE=4
+CONFIG_FB_OMAP_CONSISTENT_DMA_SIZE=14
 # CONFIG_BACKLIGHT_LCD_SUPPORT is not set
 
 #
@@ -1077,6 +1077,8 @@ CONFIG_RTC_DRV_TWL4030=y
 # CBUS support
 #
 # CONFIG_CBUS is not set
+CONFIG_MPU_BRIDGE=m
+# CONFIG_BRIDGE_DEBUG is not set
 
 #
 # File systems
