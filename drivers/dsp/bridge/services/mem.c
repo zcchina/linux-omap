@@ -357,9 +357,14 @@ void *MEM_AllocPhysMem(u32 cBytes, u32 ulAlign, OUT u32 *pPhysicalAddress)
 		if (extPhysMemPoolEnabled) {
 			pVaMem = MEM_ExtPhysMemAlloc(cBytes, ulAlign,
 						    (u32 *)&paMem);
-		} else
-			pVaMem = dma_alloc_coherent(NULL, cBytes, &paMem,
-                                              (in_atomic()) ? GFP_ATOMIC : GFP_KERNEL);
+		} else {
+			gfp_t gfp = (in_atomic()) ? GFP_ATOMIC : GFP_KERNEL;
+
+			/* To ensure allocation at immediate reloading */
+			gfp |= __GFP_RECLAIMABLE;
+
+			pVaMem = dma_alloc_coherent(NULL, cBytes, &paMem, gfp);
+		}
 		if (pVaMem == NULL) {
 			*pPhysicalAddress = 0;
 			GT_1trace(MEM_debugMask, GT_6CLASS,
