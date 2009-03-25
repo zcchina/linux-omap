@@ -34,6 +34,8 @@ obj-$(CONFIG_OMAP_SMARTREFLEX)		+= smartreflex.o
 obj-$(CONFIG_ARCH_OMAP2)		+= clock24xx.o
 obj-$(CONFIG_ARCH_OMAP3)		+= clock34xx.o
 
+obj-$(CONFIG_MPU_BRIDGE)		+= dspbridge.o
+
 # DSP
 obj-$(CONFIG_OMAP_MMU_FWK)	+= mmu_mach.o
 obj-$(CONFIG_OMAP_MBOX_FWK)	+= mailbox_mach.o
