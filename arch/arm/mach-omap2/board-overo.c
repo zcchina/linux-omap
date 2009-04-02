@@ -40,6 +40,7 @@
 #include <mach/board-overo.h>
 #include <mach/board.h>
 #include <mach/common.h>
+#include <mach/display.h>
 #include <mach/gpio.h>
 #include <mach/gpmc.h>
 #include <mach/hardware.h>
@@ -55,156 +56,101 @@
 #define GPMC_CS0_BASE  0x60
 #define GPMC_CS_SIZE   0x30
 
-static struct mtd_partition overo_nand_partitions[] = {
-	{
-		.name           = "xloader",
-		.offset         = 0,			/* Offset = 0x00000 */
-		.size           = 4 * NAND_BLOCK_SIZE,
-		.mask_flags     = MTD_WRITEABLE
-	},
-	{
-		.name           = "uboot",
-		.offset         = MTDPART_OFS_APPEND,	/* Offset = 0x80000 */
-		.size           = 14 * NAND_BLOCK_SIZE,
-	},
-	{
-		.name           = "uboot environment",
-		.offset         = MTDPART_OFS_APPEND,	/* Offset = 0x240000 */
-		.size           = 2 * NAND_BLOCK_SIZE,
-	},
-	{
-		.name           = "linux",
-		.offset         = MTDPART_OFS_APPEND,	/* Offset = 0x280000 */
-		.size           = 32 * NAND_BLOCK_SIZE,
-	},
-	{
-		.name           = "rootfs",
-		.offset         = MTDPART_OFS_APPEND,	/* Offset = 0x680000 */
-		.size           = MTDPART_SIZ_FULL,
-	},
-};
+/* DSS */
 
-static struct omap_nand_platform_data overo_nand_data = {
-	.parts = overo_nand_partitions,
-	.nr_parts = ARRAY_SIZE(overo_nand_partitions),
-	.dma_channel = -1,	/* disable DMA in OMAP NAND driver */
-};
+#define OVERO_GPIO_LCD_EN 144
 
-static struct resource overo_nand_resource = {
-	.flags		= IORESOURCE_MEM,
-};
-
-static struct platform_device overo_nand_device = {
-	.name		= "omap2-nand",
-	.id		= -1,
-	.dev		= {
-		.platform_data	= &overo_nand_data,
-	},
-	.num_resources	= 1,
-	.resource	= &overo_nand_resource,
-};
-
-
-static void __init overo_flash_init(void)
+static void __init overo_display_init(void)
 {
-	u8 cs = 0;
-	u8 nandcs = GPMC_CS_NUM + 1;
+	int r;
 
-	u32 gpmc_base_add = OMAP34XX_GPMC_VIRT;
-
-	/* find out the chip-select on which NAND exists */
-	while (cs < GPMC_CS_NUM) {
-		u32 ret = 0;
-		ret = gpmc_cs_read_reg(cs, GPMC_CS_CONFIG1);
-
-		if ((ret & 0xC00) == 0x800) {
-			printk(KERN_INFO "Found NAND on CS%d\n", cs);
-			if (nandcs > GPMC_CS_NUM)
-				nandcs = cs;
-		}
-		cs++;
-	}
-
-	if (nandcs > GPMC_CS_NUM) {
-		printk(KERN_INFO "NAND: Unable to find configuration "
-				 "in GPMC\n ");
-		return;
-	}
-
-	if (nandcs < GPMC_CS_NUM) {
-		overo_nand_data.cs = nandcs;
-		overo_nand_data.gpmc_cs_baseaddr = (void *)
-			(gpmc_base_add + GPMC_CS0_BASE + nandcs * GPMC_CS_SIZE);
-		overo_nand_data.gpmc_baseaddr = (void *) (gpmc_base_add);
-
-		printk(KERN_INFO "Registering NAND on CS%d\n", nandcs);
-		if (platform_device_register(&overo_nand_device) < 0)
-			printk(KERN_ERR "Unable to register NAND device\n");
-	}
+	r = gpio_request(OVERO_GPIO_LCD_EN, "display enable");
+	if (r)
+		printk("fail1\n");
+	r = gpio_direction_output(OVERO_GPIO_LCD_EN, 1);
+	if (r)
+		printk("fail2\n");
+	gpio_export(OVERO_GPIO_LCD_EN, 0);
 }
-static struct omap_uart_config overo_uart_config __initdata = {
-	.enabled_uarts	= ((1 << 0) | (1 << 1) | (1 << 2)),
-};
 
-static struct twl4030_gpio_platform_data overo_gpio_data = {
-	.gpio_base	= OMAP_MAX_GPIO_LINES,
-	.irq_base	= TWL4030_GPIO_IRQ_BASE,
-	.irq_end	= TWL4030_GPIO_IRQ_END,
-};
-
-static struct twl4030_usb_data overo_usb_data = {
-	.usb_mode	= T2_USB_MODE_ULPI,
-};
-
-static struct twl4030_platform_data overo_twldata = {
-	.irq_base	= TWL4030_IRQ_BASE,
-	.irq_end	= TWL4030_IRQ_END,
-	.gpio		= &overo_gpio_data,
-	.usb		= &overo_usb_data,
-	.power		= GENERIC3430_T2SCRIPTS_DATA,
-};
-
-static struct i2c_board_info __initdata overo_i2c_boardinfo[] = {
-	{
-		I2C_BOARD_INFO("tps65950", 0x48),
-		.flags = I2C_CLIENT_WAKE,
-		.irq = INT_34XX_SYS_NIRQ,
-		.platform_data = &overo_twldata,
-	},
-};
-
-static int __init overo_i2c_init(void)
+static int overo_panel_enable_dvi(struct omap_display *display)
 {
-	omap_register_i2c_bus(1, 2600, overo_i2c_boardinfo,
-			ARRAY_SIZE(overo_i2c_boardinfo));
-	/* i2c2 pins are used for gpio */
-	omap_register_i2c_bus(3, 400, NULL, 0);
+	if (lcd_enabled) {
+		printk(KERN_ERR "cannot enable DVI, LCD is enabled\n");
+		return -EINVAL;
+	}
+	dvi_enabled = 1;
+
+	gpio_set_value(OVERO_GPIO_LCD_EN, 1);
+
 	return 0;
 }
 
-static void __init overo_init_irq(void)
+static void overo_panel_disable_dvi(struct omap_display *display)
 {
-	omap2_init_common_hw(mt46h32m32lf6_sdrc_params);
-	omap_init_irq();
-	omap_gpio_init();
+	gpio_set_value(OVERO_GPIO_LCD_EN, 0);
+
+	dvi_enabled = 0;
 }
 
-static struct platform_device overo_lcd_device = {
-	.name		= "overo_lcd",
-	.id		= -1,
+static struct omap_dss_display_config overo_display_data_dvi = {
+	.type = OMAP_DISPLAY_TYPE_DPI,
+	.name = "dvi",
+	.panel_name = "panel-generic",
+	.u.dpi.data_lines = 24,
+	.panel_enable = overo_panel_enable_dvi,
+	.panel_disable = overo_panel_disable_dvi,
 };
 
-static struct omap_lcd_config overo_lcd_config __initdata = {
-	.ctrl_name	= "internal",
+static int overo_panel_enable_lcd(struct omap_display *display)
+{
+	if (dvi_enabled) {
+		printk(KERN_ERR "cannot enable LCD, DVI is enabled\n");
+		return -EINVAL;
+	}
+
+	gpio_set_value(OVERO_GPIO_LCD_EN, 1);
+	lcd_enabled = 1;
+	return 0;
+}
+
+static void overo_panel_disable_lcd(struct omap_display *display)
+{
+	gpio_set_value(OVERO_GPIO_LCD_EN, 0);
+	lcd_enabled = 0;
+}
+
+static struct omap_dss_display_config overo_display_data_lcd = {
+	.type = OMAP_DISPLAY_TYPE_DPI,
+	.name = "lcd",
+	.panel_name = "samsung-lte430wq-f0c",
+	.u.dpi.data_lines = 24,
+	.panel_enable = overo_panel_enable_lcd,
+	.panel_disable = overo_panel_disable_lcd,
+ };
+
+static struct omap_dss_board_info overo_dss_data = {
+	.num_displays = 2,
+	.displays = {
+		&overo_display_data_dvi,
+		&overo_display_data_lcd,
+	}
+};
+
+static struct platform_device overo_dss_device = {
+	.name          = "omapdss",
+	.id            = -1,
+	.dev            = {
+		.platform_data = &overo_dss_data,
+	},
 };
 
 static struct omap_board_config_kernel overo_config[] __initdata = {
 	{ OMAP_TAG_UART,	&overo_uart_config },
-	{ OMAP_TAG_LCD,		&overo_lcd_config },
 };
 
 static struct platform_device *overo_devices[] __initdata = {
-	&overo_lcd_device,
+	&overo_dss_device,
 };
 
 static struct twl4030_hsmmc_info mmc[] __initdata = {
@@ -234,6 +180,7 @@ static void __init overo_init(void)
 	usb_musb_init();
 	usb_ehci_init();
 	overo_flash_init();
+	overo_display_init();
 
 	if ((gpio_request(OVERO_GPIO_W2W_NRESET,
 			  "OVERO_GPIO_W2W_NRESET") == 0) &&
